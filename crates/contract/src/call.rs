@@ -189,7 +189,7 @@ impl CallDecoder for () {
 #[derive(Clone)]
 #[must_use = "call builders do nothing unless you `.call`, `.send`, or `.await` them"]
 pub struct CallBuilder<T, P, D, N: Network = Ethereum> {
-    request: N::TransactionRequest,
+    pub request: N::TransactionRequest,
     block: BlockId,
     state: Option<StateOverride>,
     /// The provider.
