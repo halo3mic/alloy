@@ -6,6 +6,9 @@
 //!
 //! [`Provider`]: crate::Provider
 
+mod from_filler;
+pub use from_filler::FromFiller;
+
 mod chain_id;
 pub use chain_id::ChainIdFiller;
 

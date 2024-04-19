@@ -1,11 +1,12 @@
 use crate::{
     fillers::{
-        ChainIdFiller, FillerControlFlow, GasFiller, JoinFill, NonceFiller, SignerFiller, TxFiller,
+        ChainIdFiller, FillerControlFlow, GasFiller, JoinFill, 
+        NonceFiller, SignerFiller, TxFiller, FromFiller,
     },
     provider::SendableTx,
     Provider, RootProvider,
 };
-use alloy_network::{Ethereum, Network};
+use alloy_network::{Ethereum, Network, NetworkSigner};
 use alloy_rpc_client::{BuiltInConnectionString, ClientBuilder, RpcClient};
 use alloy_transport::{BoxTransport, Transport, TransportError, TransportResult};
 use std::marker::PhantomData;
@@ -200,8 +201,11 @@ impl<L, F, N> ProviderBuilder<L, F, N> {
     /// Add a signer layer to the stack being built.
     ///
     /// See [`SignerFiller`].
-    pub fn signer<S>(self, signer: S) -> ProviderBuilder<L, JoinFill<F, SignerFiller<S>>, N> {
-        self.filler(SignerFiller::new(signer))
+    pub fn signer<S>(self, signer: S) -> ProviderBuilder<L, JoinFill<JoinFill<F, FromFiller>, SignerFiller<S>>, N>
+        where S: NetworkSigner<N>, N: Network
+    {
+        self.filler(FromFiller::new(signer.default_signer()))
+            .filler(SignerFiller::new(signer))
     }
 
     /// Change the network.
@@ -361,10 +365,12 @@ impl<L, F> ProviderBuilder<L, F, Ethereum> {
     pub fn on_anvil_with_signer(
         self,
     ) -> (
-        <JoinFill<F, SignerFiller<alloy_network::EthereumSigner>> as ProviderLayer<
-            L::Provider,
-            alloy_transport_http::Http<reqwest::Client>,
-        >>::Provider,
+        <JoinFill
+            <JoinFill
+                <F, FromFiller>,
+                SignerFiller<alloy_network::EthereumSigner>
+            > as ProviderLayer<L::Provider,alloy_transport_http::Http<reqwest::Client>,>
+        >::Provider,
         alloy_node_bindings::AnvilInstance,
     )
     where
