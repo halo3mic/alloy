@@ -1,6 +1,6 @@
 use crate::{
     fillers::{
-        ChainIdFiller, FillerControlFlow, GasFiller, JoinFill, NonceFiller, SignerFiller, TxFiller,
+        ChainIdFiller, FillerControlFlow, GasFiller, JoinFill, NonceFiller, SignerFiller, TxFiller, GasPriceFiller,
     },
     provider::SendableTx,
     Provider, RootProvider,
@@ -12,7 +12,7 @@ use std::marker::PhantomData;
 
 /// The recommended filler.
 type RecommendFiller =
-    JoinFill<JoinFill<JoinFill<Identity, GasFiller>, NonceFiller>, ChainIdFiller>;
+    JoinFill<JoinFill<JoinFill<JoinFill<Identity, GasFiller>, NonceFiller>, ChainIdFiller>, GasPriceFiller>;
 
 /// A layering abstraction in the vein of [`tower::Layer`]
 ///
@@ -130,7 +130,10 @@ impl<L, N> ProviderBuilder<L, Identity, N> {
     /// Add preconfigured set of layers handling gas estimation, nonce
     /// management, and chain-id fetching.
     pub fn with_recommended_fillers(self) -> ProviderBuilder<L, RecommendFiller, N> {
-        self.filler(GasFiller).filler(NonceFiller::default()).filler(ChainIdFiller::default())
+        self.filler(GasFiller)
+            .filler(NonceFiller::default())
+            .filler(ChainIdFiller::default())
+            .filler(GasPriceFiller::default())
     }
 
     /// Add gas estimation to the stack being built.
@@ -138,6 +141,13 @@ impl<L, N> ProviderBuilder<L, Identity, N> {
     /// See [`GasFiller`]
     pub fn with_gas_estimation(self) -> ProviderBuilder<L, JoinFill<Identity, GasFiller>, N> {
         self.filler(GasFiller)
+    }
+
+    /// Add gas pricing to the stack being built.
+    ///
+    /// See [`GasPriceFiller`]
+    pub fn with_gas_pricing(self) -> ProviderBuilder<L, JoinFill<Identity, GasPriceFiller>, N> {
+        self.filler(GasPriceFiller::default())
     }
 
     /// Add nonce management to the stack being built.

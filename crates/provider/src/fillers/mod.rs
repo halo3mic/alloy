@@ -6,6 +6,9 @@
 //!
 //! [`Provider`]: crate::Provider
 
+mod gas_price;
+pub use gas_price::GasPriceFiller;
+
 mod chain_id;
 pub use chain_id::ChainIdFiller;
 
