@@ -15,24 +15,6 @@ use crate::{
 ///
 /// Transactions that already have a from set by the user will not be
 /// modified.
-///
-/// # Example
-///
-/// ```
-/// # use alloy_network::{NetworkSigner, EthereumSigner, Ethereum};
-/// # use alloy_rpc_types::TransactionRequest;
-/// # use alloy_provider::{ProviderBuilder, RootProvider, Provider};
-/// # use alloy_primitives::Address;
-/// # async fn test<S: NetworkSigner<Ethereum> + Clone>(url: url::Url, signer: S) -> Result<(), Box<dyn std::error::Error>> {
-/// let provider = ProviderBuilder::new()
-///     .with_from(Address::ZERO)
-///     .signer(signer)
-///     .on_http(url)?;
-///
-/// provider.send_transaction(TransactionRequest::default()).await;
-/// # Ok(())
-/// # }
-/// ```
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct FromFiller(Address);
 
