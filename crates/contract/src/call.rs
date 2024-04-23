@@ -2,13 +2,14 @@ use crate::{Error, Result};
 use alloy_dyn_abi::{DynSolValue, FunctionExt, JsonAbiExt};
 use alloy_json_abi::Function;
 use alloy_network::{Ethereum, Network, ReceiptResponse, TransactionBuilder};
-use alloy_primitives::{Address, Bytes, U256};
+use alloy_primitives::{Address, Bytes, TxKind};
 use alloy_provider::{PendingTransactionBuilder, Provider};
-use alloy_rpc_types::{state::StateOverride, BlobTransactionSidecar, BlockId};
+use alloy_rpc_types::{state::StateOverride, BlockId};
 use alloy_sol_types::SolCall;
 use alloy_transport::Transport;
 use std::{
     future::{Future, IntoFuture},
+    ops::{Deref, DerefMut},
     marker::PhantomData,
     pin::Pin,
 };
@@ -226,7 +227,9 @@ impl<'a, T: Transport + Clone, P: Provider<T, N>, C: SolCall, N: Network>
     // `sol!` macro constructor, see `#[sol(rpc)]`. Not public API.
     // NOTE: please avoid changing this function due to its use in the `sol!` macro.
     pub fn new_sol(provider: &'a P, address: &Address, call: &C) -> Self {
-        Self::new_inner(provider, call.abi_encode().into(), PhantomData::<C>).to(Some(*address))
+        let mut new = Self::new_inner(provider, call.abi_encode().into(), PhantomData::<C>);
+        new.set_to(TxKind::from(*address));
+        new
     }
 }
 
@@ -268,53 +271,9 @@ impl<T: Transport + Clone, P: Provider<T, N>, D: CallDecoder, N: Network> CallBu
         }
     }
 
-    /// Sets the `from` field in the transaction to the provided value. Defaults to [Address::ZERO].
-    pub fn from(mut self, from: Address) -> Self {
-        self.request.set_from(from);
-        self
-    }
-
-    /// Sets the `to` field in the transaction to the provided address.
-    pub fn to(mut self, to: Option<Address>) -> Self {
-        self.request.set_to(to.into());
-        self
-    }
-
-    /// Sets the `sidecar` field in the transaction to the provided value.
-    pub fn sidecar(mut self, blob_sidecar: BlobTransactionSidecar) -> Self {
-        self.request.set_blob_sidecar(blob_sidecar);
-        self
-    }
-
     /// Uses a Legacy transaction instead of an EIP-1559 one to execute the call
     pub fn legacy(self) -> Self {
         todo!()
-    }
-
-    /// Sets the `gas` field in the transaction to the provided value
-    pub fn gas(mut self, gas: u128) -> Self {
-        self.request.set_gas_limit(gas);
-        self
-    }
-
-    /// Sets the `gas_price` field in the transaction to the provided value
-    /// If the internal transaction is an EIP-1559 one, then it sets both
-    /// `max_fee_per_gas` and `max_priority_fee_per_gas` to the same value
-    pub fn gas_price(mut self, gas_price: u128) -> Self {
-        self.request.set_gas_price(gas_price);
-        self
-    }
-
-    /// Sets the `value` field in the transaction to the provided value
-    pub fn value(mut self, value: U256) -> Self {
-        self.request.set_value(value);
-        self
-    }
-
-    /// Sets the `nonce` field in the transaction to the provided value
-    pub fn nonce(mut self, nonce: u64) -> Self {
-        self.request.set_nonce(nonce);
-        self
     }
 
     /// Applies a function to the internal transaction request.
@@ -387,7 +346,7 @@ impl<T: Transport + Clone, P: Provider<T, N>, D: CallDecoder, N: Network> CallBu
     /// the address of the deployed contract after the transaction has been confirmed.
     ///
     /// Returns an error if the transaction is not a deployment transaction, or if the contract
-    /// address is not found in the deployment transaction’s receipt.
+    /// address is not found in the deployment transaction's receipt.
     ///
     /// For more fine-grained control over the deployment process, use [`send`](Self::send) instead.
     ///
@@ -476,15 +435,45 @@ impl<T, P, D: CallDecoder, N: Network> std::fmt::Debug for CallBuilder<T, P, D, 
     }
 }
 
+impl<T, P, D, N> Deref for CallBuilder<T, P, D, N> 
+    where
+        T: Transport + Clone,
+        P: Provider<T, N>,
+        D: CallDecoder,
+        N: Network,
+{
+    type Target = N::TransactionRequest;
+
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        &self.request
+    }
+}
+
+impl<T, P, D, N> DerefMut for CallBuilder<T, P, D, N> 
+    where
+        T: Transport + Clone,
+        P: Provider<T, N>,
+        D: CallDecoder,
+        N: Network,
+{
+    #[inline]
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.request
+    }
+}
+
+
 #[cfg(test)]
 #[allow(unused_imports)]
 mod tests {
     use super::*;
     use alloy_network::Ethereum;
     use alloy_node_bindings::{Anvil, AnvilInstance};
-    use alloy_primitives::{address, b256, bytes, hex};
+    use alloy_primitives::{address, b256, bytes, hex, U256};
     use alloy_provider::{Provider, ReqwestProvider, RootProvider};
     use alloy_rpc_client::RpcClient;
+    use alloy_rpc_types::AccessList;
     use alloy_sol_types::sol;
     use alloy_transport_http::Http;
     use reqwest::Client;
@@ -494,6 +483,15 @@ mod tests {
         let url = anvil.endpoint().parse().unwrap();
         let http = Http::<Client>::new(url);
         (RootProvider::new(RpcClient::new(http, true)), anvil)
+    }
+
+    #[test]
+    fn deref_callbuilder() {
+        let (provider, _anvil) = spawn_anvil();
+        let mut call_builder = CallBuilder::<_, _, _, Ethereum>::new_raw(provider, bytes!(""));
+        let address = address!("0000000000000000000000000000000000000042");
+        call_builder.set_from(address);
+        assert_eq!(call_builder.from, Some(address));
     }
 
     #[test]
