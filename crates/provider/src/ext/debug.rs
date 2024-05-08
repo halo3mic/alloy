@@ -97,7 +97,7 @@ impl<N, T, P> DebugApi<N, T> for P
 where
     N: Network,
     T: Transport + Clone,
-    P: Provider<T, N>,
+    P: Provider<T, N> + ?Sized,
 {
     async fn debug_trace_transaction(
         &self,
