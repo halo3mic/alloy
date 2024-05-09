@@ -23,11 +23,11 @@ pub struct AccountOverride {
     /// Fake key-value mapping to override all slots in the account storage before executing the
     /// call.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub state: Option<HashMap<B256, U256>>,
+    pub state: Option<HashMap<B256, B256>>,
     /// Fake key-value mapping to override individual slots in the account storage before executing
     /// the call.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub state_diff: Option<HashMap<B256, U256>>,
+    pub state_diff: Option<HashMap<B256, B256>>,
 }
 
 #[cfg(test)]
